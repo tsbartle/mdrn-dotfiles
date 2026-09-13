@@ -1,4 +1,4 @@
-# tsbartle-dotfiles
+# mdrn-dotfiles
 
 Personal config, split out from the borrowed `omerxx/dotfiles` clone in `~/dotfiles`.
 
