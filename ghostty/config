@@ -1,5 +1,5 @@
 font-family = JetBrainsMono Nerd Font Mono
-font-size = 19
+font-size = 18
 
 # Draw Nerd Font ICONS from the non-Mono face while text stays Mono.
 #
@@ -29,5 +29,5 @@ window-decoration = true
 macos-option-as-alt = true
 theme = Catppuccin Mocha
 window-padding-x = 18
-window-padding-y = 12,28
+window-padding-y = 8,8
 window-padding-balance = true
