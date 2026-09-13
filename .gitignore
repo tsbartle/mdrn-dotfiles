@@ -14,3 +14,13 @@ ps.json
 nvim/plugin/packer_compiled.lua
 
 .DS_Store
+
+# Claude Code — session/agent state, never part of the dotfiles.
+# Persistent memory already lives OUTSIDE this repo, in
+# ~/.claude/projects/<slug>/memory/, so git here cannot see it. These entries
+# cover the case where a future session writes project-local Claude files into
+# the working tree. Delete a line if you ever want to track that file.
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+MEMORY.md

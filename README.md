@@ -69,6 +69,12 @@ binary from <https://github.com/jesseduffield/lazygit/releases>.
 `~/.local/share/fonts/`, then `fc-cache -fv`. Without it the tmux status bar
 separators and lazygit icons render as boxes.
 
+Unzip the **whole** archive, not just the `*NerdFontMono-*.ttf` files:
+`ghostty/config` sets `font-family` to the *Mono* face for text but maps the
+icon codepoints to the plain `JetBrainsMono Nerd Font` face (see the comment
+there for why). Both must be installed or the icons fall back to the Mono face
+and render squashed to a single cell.
+
 **ripgrep is not optional** if you use `<leader>ps`. Telescope's
 `vimgrep_arguments` defaults to `rg`; without it the picker opens, finds
 nothing, and closes without an error message. `:checkhealth telescope` reports

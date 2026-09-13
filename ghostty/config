@@ -1,5 +1,28 @@
 font-family = JetBrainsMono Nerd Font Mono
 font-size = 19
+
+# Draw Nerd Font ICONS from the non-Mono face while text stays Mono.
+#
+# Nerd Fonts ships three variants of each family. The "Mono" one squashes every
+# icon to exactly one cell with ZERO side bearing -- measured on the calendar
+# glyph U+F00F0, the outline is 600 units wide inside a 600-unit cell, so it
+# physically touches both cell walls. The plain "JetBrainsMono Nerd Font" face
+# draws the same glyph 834 units wide. That single difference is why upstream
+# previews (catppuccin/tmux et al) look roomier: they use the non-Mono face.
+# Advance width is 600 in BOTH faces -- only the drawn outline differs.
+#
+# The icons therefore overflow their cell by up to ~39% and can bleed into the
+# neighbouring character in dense listings (nvim devicons, lazygit file trees).
+# If that ever looks crowded, delete these three lines; nothing else depends on
+# them.
+#
+# U+E0B0-U+E0BF (the powerline separators tmux draws its pills with) is
+# deliberately NOT mapped: `ghostty +show-face --cp=0xE0B6` reports those are
+# "handled by Ghostty's internal sprites", drawn by the terminal itself for
+# seamless cell-edge tiling, so no font mapping affects them either way.
+font-codepoint-map = U+E000-U+E0AF=JetBrainsMono Nerd Font
+font-codepoint-map = U+E0C0-U+F8FF=JetBrainsMono Nerd Font
+font-codepoint-map = U+F0001-U+F1AF0=JetBrainsMono Nerd Font
 background-blur-radius = 20
 mouse-hide-while-typing = true
 window-decoration = true
