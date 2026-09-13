@@ -52,6 +52,26 @@ case "$(uname -s)" in
   *)      LG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/lazygit" ;;
 esac
 link "$REPO/lazygit/config.yml" "$LG_DIR/config.yml" "lazygit/config.yml"
+
+# --- tpm ----------------------------------------------------------------------
+# tpm lives INSIDE the tmux package (tmux/plugins/tpm, gitignored), so it has to
+# be cloned per machine. It is cloned HERE, after the symlink above, on purpose:
+# if you clone it into ~/.config/tmux while that is still a real directory, the
+# link step moves the whole directory -- tpm included -- to
+# ~/.config/tmux.pre-install.<timestamp>, and tmux.conf's `run` line then points
+# at nothing. The symptom is silent: prefix + I does nothing at all, because the
+# I binding is created by tpm itself and tpm never loaded. Cloning it here makes
+# that ordering impossible to get wrong.
+TPM_DIR="$REPO/tmux/plugins/tpm"
+if [ -e "$TPM_DIR/tpm" ]; then
+  echo "ok      tpm (already cloned)"
+elif command -v git >/dev/null 2>&1; then
+  echo "clone   tpm -> tmux/plugins/tpm"
+  git clone --depth 1 -q https://github.com/tmux-plugins/tpm "$TPM_DIR" \
+    || echo "warn    tpm clone failed -- check network, then re-run"
+else
+  echo "warn    tpm not cloned (git not on PATH)"
+fi
 fi
 
 
@@ -112,7 +132,7 @@ check_deps() {
   if [ -d "$HOME/.config/tmux/plugins/tpm" ]; then
     report "tpm" ok "installed"
   else
-    report "tpm" warn "git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm"
+    report "tpm" warn "re-run ./install.sh (it clones tpm), then: prefix + I"
   fi
 
   if [ -d "$HOME/.local/share/nvim/site/pack/packer/start/packer.nvim" ]; then

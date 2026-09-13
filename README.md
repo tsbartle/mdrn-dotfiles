@@ -35,10 +35,14 @@ That's the whole list. The font cask matters more than it looks — see step 3.
 RHEL needs repo setup first, because most of these aren't in the base channels:
 
 ```bash
+sudo dnf install dnf-plugins-core            # provides config-manager and copr
 sudo dnf install epel-release
 sudo dnf config-manager --set-enabled crb    # RHEL 9 CodeReady Builder
 sudo dnf copr enable atim/lazygit            # lazygit isn't in EPEL
 ```
+
+`dnf-plugins-core` goes first — without it the next two commands fail with
+"No such command: config-manager", which is a confusing way to find out.
 
 then the packages themselves:
 
@@ -46,6 +50,24 @@ then the packages themselves:
 sudo dnf install tmux git neovim ripgrep fd-find nodejs npm gcc make lazygit
 sudo dnf install wl-clipboard                # Wayland — use xclip on X11
 ```
+
+**If COPR is blocked** — common on locked-down or centrally-managed RHEL, where
+third-party repos are disabled by policy — skip the `copr enable` line, drop
+`lazygit` from the install list, and use the upstream binary instead:
+
+```bash
+LG_VER=$(curl -s https://api.github.com/repos/jesseduffield/lazygit/releases/latest \
+         | grep -Po '"tag_name": *"v\K[^"]*')
+curl -Lo /tmp/lazygit.tar.gz \
+  "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LG_VER}_Linux_x86_64.tar.gz"
+tar xf /tmp/lazygit.tar.gz -C /tmp lazygit
+install -Dm755 /tmp/lazygit ~/.local/bin/lazygit   # no sudo needed
+```
+
+`~/.local/bin` needs to be on your PATH. Everything in this repo finds lazygit
+via PATH — `nvim/after/plugin/lazygit.lua` guards with `vim.fn.executable()` and
+tmux's `prefix + g` popup does the same — so a user-local install works fine and
+needs no root.
 
 Three things to know before you trust that list:
 
@@ -159,13 +181,11 @@ or just restart it.
 
 ## 4. Bring up tmux
 
-`tmux/plugins/` is gitignored, so plugins are fetched per-machine — a fresh
-clone has none of them. Install tpm, then let it pull the rest:
+`tmux/plugins/` is gitignored, so plugins are fetched per-machine. `install.sh`
+already cloned tpm for you in step 2 — you just need to let it pull the rest:
 
 ```bash
-git clone https://github.com/tmux-plugins/tpm ~/.config/tmux/plugins/tpm
 tmux
-tmux source ~/.config/tmux/tmux.conf
 ```
 
 Now press <kbd>C-a</kbd> then <kbd>I</kbd> (capital i). tpm fetches the ten
@@ -174,6 +194,22 @@ catppuccin, sessionx, floax. You'll know it worked when the status bar grows its
 rounded Catppuccin pills.
 
 Prefix is <kbd>C-a</kbd>, not <kbd>C-b</kbd>.
+
+**If <kbd>C-a</kbd> <kbd>I</kbd> appears to do nothing at all** — no popup, no
+error — tpm didn't load. That binding is created *by tpm*, so its absence means
+`run '~/.config/tmux/plugins/tpm/tpm'` (tmux.conf line 199) found nothing:
+
+```bash
+ls -la ~/.config/tmux/plugins/tpm/tpm   # should exist
+tmux list-keys | grep -w I              # should show a binding
+./install.sh                            # re-clones tpm if it's missing
+tmux kill-server && tmux
+```
+
+Don't clone tpm into `~/.config/tmux/` by hand *before* running `install.sh` —
+while that path is still a real directory, the link step moves the whole thing to
+`~/.config/tmux.pre-install.<timestamp>`, tpm included. `install.sh` clones it
+after linking for exactly this reason.
 
 ## 5. Bring up Neovim
 
@@ -227,6 +263,8 @@ this setup not tracked here.
 | `<leader>y` doesn't reach the system clipboard | no clipboard provider on Linux | See below |
 | nvim LSP errors about `vim.lsp.config` | Neovim older than 0.11 | Upgrade; `./install.sh --check` tests this |
 | cmd+s / cmd+b do nothing in Ghostty | those keybinds were never in this config | Add them to `ghostty/config` if you want them |
+| tmux ignores `~/.config/tmux/tmux.conf` | tmux not searching the XDG path | See below |
+| `prefix + I` does nothing, no error | tpm not loaded | Step 4 — check the `run` line's path |
 
 ## The treesitter branch trap
 
@@ -260,6 +298,42 @@ nvim +TSUpdateSync
 Moving to `main` some day means rewriting `treesitter.lua` around
 `require('nvim-treesitter').install()` plus a `FileType` autocmd calling
 `vim.treesitter.start()`. It is not a drop-in swap.
+
+## tmux can't find the config on RHEL
+
+Seen on RHEL 9 with tmux 3.3a: the config sits at `~/.config/tmux/tmux.conf` and
+tmux ignores it completely, starting with stock defaults instead. Ask tmux what
+it actually loaded:
+
+```bash
+tmux display -p '#{config_files}'
+```
+
+If that prints `~/.tmux.conf` — especially when no such file exists — tmux never
+had the XDG path in its search list. XDG support arrived upstream in tmux 3.1,
+but whether a given build looks there can also depend on `XDG_CONFIG_HOME` being
+set, and it is unset by default on RHEL. Test which case you're in:
+
+```bash
+XDG_CONFIG_HOME=$HOME/.config tmux kill-server
+XDG_CONFIG_HOME=$HOME/.config tmux
+```
+
+The version-proof fix is a one-line shim at the old path, which works regardless
+of the cause and regardless of tmux version:
+
+```bash
+printf 'source-file ~/.config/tmux/tmux.conf\n' > ~/.tmux.conf
+tmux kill-server && tmux
+```
+
+Prefer that over exporting `XDG_CONFIG_HOME` in your shell profile — the env var
+fixes tmux but changes lookup behaviour for every other XDG-aware tool on the
+box, which is a much wider blast radius for one config file.
+
+`tmux kill-server` matters: tmux reads its config once at server start, so
+`source-file` on a running server layers new settings over the old ones instead
+of resetting them.
 
 ## Clipboard on Linux
 
