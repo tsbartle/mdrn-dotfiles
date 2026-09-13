@@ -9,6 +9,7 @@ tmux/plugins/
 
 # stray dumps
 ps.json
+nvim.log
 
 # nvim: packer's generated compile output
 nvim/plugin/packer_compiled.lua

@@ -1,6 +1,0 @@
---target=~/.config
---ignore=.stowrc
---ignore=.backups
---ignore=install.sh
---ignore=README.md
---ignore=.DS_Store

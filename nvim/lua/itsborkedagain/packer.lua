@@ -36,9 +36,30 @@ return require('packer').startup(function(use)
     requires = { 'nvim-tree/nvim-web-devicons' },
   }
 
-  -- syntax highlighting with treesitter
-  use('nvim-treesitter/nvim-treesitter', { run = ':TSUpdate' })
-  use('nvim-treesitter/playground')
+  -- syntax highlighting with treesitter.
+  --
+  -- Pinned to master. Upstream flipped the DEFAULT branch to `main` (the v1.0
+  -- rewrite), which deleted the entire `nvim-treesitter.configs` module that
+  -- after/plugin/treesitter.lua drives -- so an unpinned clone on a fresh
+  -- machine installs main and every startup throws
+  -- "module 'nvim-treesitter.configs' not found". master is maintenance-mode
+  -- but stable on 0.12. If you ever move to main, treesitter.lua has to be
+  -- rewritten around require('nvim-treesitter').install() plus a FileType
+  -- autocmd calling vim.treesitter.start().
+  --
+  -- The run hook must live INSIDE the spec table. It used to be passed as a
+  -- second argument -- `use('...', { run = ':TSUpdate' })` -- which packer
+  -- silently discards, so packer_compiled.lua never registered the hook and
+  -- parsers were never built.
+  use {
+    'nvim-treesitter/nvim-treesitter',
+    branch = 'master',
+    run = ':TSUpdate',
+  }
+
+  -- nvim-treesitter/playground was removed here: it is archived upstream and
+  -- its define_modules() call is nil against any current nvim-treesitter.
+  -- nvim 0.12 ships :InspectTree and :EditQuery built in, which replace it.
 
   -- Harpoon plugin for navigating files
   use('theprimeagen/harpoon')

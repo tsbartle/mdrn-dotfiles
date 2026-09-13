@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# Symlink this repo's packages into place.
-# stow isn't installed on this machine, so this does the same job with ln -s.
-# If you ever `brew install stow`, `stow .` handles the ~/.config packages too
-# (.stowrc targets ~/.config) -- but NOT lazygit, see below.
+# Symlink this repo's packages into place. This is THE installer -- there is no
+# stow path any more and the .stowrc that used to sit beside this file is gone.
+#
+# Why not stow: stow links each FILE individually into an existing directory,
+# while this links each PACKAGE DIRECTORY as a single symlink. The two layouts
+# are not interchangeable, and once ~/.config/nvim is itself a symlink into this
+# repo, `stow nvim` resolves its relative link paths back INTO the working tree.
+# stow also cannot place lazygit correctly on macOS (see below). Run this script.
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
