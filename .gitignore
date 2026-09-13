@@ -1,0 +1,16 @@
+# TPM-installed plugins — cloned by tpm, not tracked here
+tmux/plugins/
+
+# timestamped backups
+*.bak
+*.bak.*
+*.pre-install.*
+.backups/
+
+# stray dumps
+ps.json
+
+# nvim: packer's generated compile output
+nvim/plugin/packer_compiled.lua
+
+.DS_Store

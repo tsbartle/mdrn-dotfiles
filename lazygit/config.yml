@@ -1,0 +1,33 @@
+# lazygit, themed to Catppuccin Mocha to match nvim, tmux and ghostty.
+# Palette values are the standard Catppuccin Mocha hexes -- the same ones the
+# tmux status bar and the nvim colorscheme use.
+#
+# NOTE: on macOS lazygit reads this from
+#   ~/Library/Application Support/lazygit/config.yml
+# NOT ~/.config/lazygit. install.sh symlinks that path to this file.
+
+gui:
+  nerdFontsVersion: "3"
+  showListFooter: true
+  theme:
+    activeBorderColor:
+      - "#89b4fa"   # blue
+      - bold
+    inactiveBorderColor:
+      - "#a6adc8"   # subtext0
+    optionsTextColor:
+      - "#89b4fa"   # blue
+    selectedLineBgColor:
+      - "#313244"   # surface0
+    cherryPickedCommitBgColor:
+      - "#45475a"   # surface1
+    cherryPickedCommitFgColor:
+      - "#89b4fa"   # blue
+    unstagedChangesColor:
+      - "#f38ba8"   # red
+    defaultFgColor:
+      - "#cdd6f4"   # text
+    searchingActiveBorderColor:
+      - "#f9e2af"   # yellow
+  authorColors:
+    "*": "#b4befe"  # lavender
