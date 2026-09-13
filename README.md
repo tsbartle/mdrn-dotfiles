@@ -180,16 +180,24 @@ Prefix is <kbd>C-a</kbd>, not <kbd>C-b</kbd>.
 Bootstrap packer, then sync:
 
 ```bash
+# 1. bootstrap the plugin manager
 git clone --depth 1 https://github.com/wbthomason/packer.nvim \
   ~/.local/share/nvim/site/pack/packer/start/packer.nvim
+
+# 2. fetch every plugin in lua/itsborkedagain/packer.lua
 nvim +PackerSync
+
+# 3. compile the treesitter parsers (needs the C compiler from the deps step)
+nvim +TSUpdateSync
 ```
 
-The first launch warns about missing plugins — that's expected, let PackerSync
-finish and quit. Then inside nvim:
+The first launch warns about missing plugins — that's expected. `+PackerSync`
+opens a progress window; let it finish and `:q` out. `+TSUpdateSync` is the
+synchronous variant of `:TSUpdate`, so it blocks until every parser is built
+rather than returning immediately — that's what you want in a setup script.
 
-- `:TSUpdateSync` — compiles the treesitter parsers (needs the C compiler)
-- `:Mason` — confirm `ansiblels`, `html` and `lua_ls` installed
+Then open nvim and run `:Mason` to confirm `ansiblels`, `html` and `lua_ls`
+installed.
 
 Finally, the real test:
 
