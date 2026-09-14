@@ -69,28 +69,48 @@ tar xf /tmp/lazygit.tar.gz -C /tmp lazygit
 install -Dm755 /tmp/lazygit ~/.local/bin/lazygit   # no sudo needed
 ```
 
-**The tree-sitter CLI is the other one you have to hand-install on RHEL.**
-nvim-treesitter `main` compiles every parser by shelling out to
-`tree-sitter build`, so without it `:TSInstall` fails and you get no
-highlighting at all. It is not in the base channels, and as of writing not in
-EPEL either — check `dnf search tree-sitter-cli` first, but expect to do this:
+**The tree-sitter CLI is the other thing you need on RHEL.** nvim-treesitter
+`main` compiles every parser by shelling out to `tree-sitter build`, so without
+it `:TSInstall` fails and you get no highlighting at all. It is packaged:
 
 ```bash
-# prebuilt binary, no sudo, no Rust toolchain -- same pattern as lazygit above
-curl -Lo /tmp/ts.gz \
-  https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-x64.gz
-gunzip -f /tmp/ts.gz
-install -Dm755 /tmp/ts ~/.local/bin/tree-sitter
-tree-sitter --version        # must be >= 0.26.1
+sudo dnf install tree-sitter-cli
+tree-sitter --version
 ```
 
-Confirm the asset name on the releases page if that 404s — upstream has renamed
-it before. The alternative, if you already have Rust, is
-`cargo install tree-sitter-cli`, which builds from source and takes a while.
+**RHEL 9 ships 0.25.10, and upstream's stated floor is 0.26.1 — try it anyway.**
+That floor is advisory: it lives only in `health.lua`, so `:checkhealth
+nvim-treesitter` prints a red ERROR, but `install.lua` has no version gate of
+any kind. The only CLI call on the normal install path is `tree-sitter build`,
+which has existed since 0.24, and none of the parsers in
+`after/plugin/treesitter.lua` set `generate`, so the more version-sensitive
+`tree-sitter generate --abi` path is never reached. Parser ABI comes from the
+pre-generated `src/parser.c` in the downloaded tarball, not from your CLI.
 
-Do **not** install it from npm. Upstream's requirements list says so explicitly,
-and the npm package is a wrapper that fetches its own binary rather than the one
-your platform expects.
+So: install it, open `nvim`, and check `:TSLog` for build failures. Red
+healthcheck line but working highlighting is a fine place to stop.
+
+If parsers genuinely fail to build, build the CLI instead — this always works,
+because it links against *your* glibc:
+
+```bash
+sudo dnf install cargo           # AppStream; use rustup if that rust is too old
+cargo install tree-sitter-cli --locked
+export PATH="$HOME/.cargo/bin:$PATH"     # add this to your shell rc
+```
+
+**Do not use the `tree-sitter-linux-x64` release binary on RHEL 9.** Upstream
+builds it on Ubuntu 24.04 (glibc 2.39), RHEL 9 ships glibc 2.34, and it dies
+before printing anything:
+
+```
+/root/.local/bin/tree-sitter: /lib64/libm.so.6: version `GLIBC_2.35' not found
+/root/.local/bin/tree-sitter: /lib64/libc.so.6: version `GLIBC_2.39' not found
+```
+
+A `-musl` asset, if upstream is publishing one, is statically linked and would
+work — but on RHEL just use dnf. Not npm either: that package is a wrapper that
+fetches the same prebuilt GNU binary, putting you back into the error above.
 
 `~/.local/bin` needs to be on your PATH. Everything in this repo finds lazygit
 via PATH — `nvim/after/plugin/lazygit.lua` guards with `vim.fn.executable()` and
@@ -123,7 +143,7 @@ this file is right.
 | tmux, git, nvim | `tmux git neovim` | `tmux git neovim` | `tmux git neovim` |
 | lazygit | release binary ▼ | `lazygit` | `lazygit` |
 | C compiler (treesitter) | `build-essential` | `gcc make` | `base-devel` |
-| tree-sitter CLI ≥ 0.26.1 ▼ | binary or `cargo` ▼ | `tree-sitter-cli` | `tree-sitter-cli` |
+| tree-sitter CLI ≥ 0.26.1 | `tree-sitter-cli`, else `cargo` ▼ | `tree-sitter-cli` | `tree-sitter-cli` |
 | Clipboard — X11 | `xclip` *or* `xsel` | `xclip` | `xclip` |
 | Clipboard — Wayland | `wl-clipboard` | `wl-clipboard` | `wl-clipboard` |
 | **ripgrep** (telescope grep) | `ripgrep` | `ripgrep` | `ripgrep` |
@@ -298,7 +318,7 @@ this setup not tracked here.
 | `attempt to call method 'range' (a nil value)` in the highlighter | treesitter still on `master` | See below |
 | `module 'nvim-treesitter.configs' not found` | treesitter still on `master`, or plugin missing entirely | See below |
 | `attempt to call field 'define_modules'` | archived `playground` plugin | Remove it; nvim 0.12 has `:InspectTree` |
-| `:TSInstall` fails, "tree-sitter executable not found" | tree-sitter CLI missing | `brew install tree-sitter-cli` (not the `tree-sitter` formula, not npm) |
+| `:TSInstall` fails, "tree-sitter executable not found" | tree-sitter CLI missing | `brew install tree-sitter-cli` / `dnf install tree-sitter-cli`. Not the `tree-sitter` *library* package, and not npm |
 | `PackerSync`: `E492: Not an editor command: TSUpdate` | `run` hook fired before the fresh clone joined `runtimepath` | Harmless — the clone still succeeded. Fixed by the function-form `run` hook in `packer.lua`; see below |
 | Telescope grep finds nothing, no error | `rg` missing | Install ripgrep |
 | `<leader>y` doesn't reach the system clipboard | no clipboard provider on Linux | See below |

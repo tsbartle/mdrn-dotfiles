@@ -124,7 +124,7 @@ check_deps() {
     if [ "$(printf '%s\n0.26.1\n' "$tsv" | sort -V | head -1)" = "0.26.1" ]; then
       report "tree-sitter CLI" ok "$tsv ($(command -v tree-sitter))"
     else
-      report "tree-sitter CLI" warn "$tsv -- treesitter 'main' needs >= 0.26.1"
+      report "tree-sitter CLI" warn "$tsv -- below upstream's 0.26.1; usually still builds, check :TSLog"
     fi
   else
     report "tree-sitter CLI" warn "missing -- parsers cannot build; see README (NOT npm)"
