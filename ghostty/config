@@ -1,4 +1,5 @@
 font-family = JetBrainsMono Nerd Font Mono
+font-style = SemiBold
 font-size = 18
 
 # Draw Nerd Font ICONS from the non-Mono face while text stays Mono.
