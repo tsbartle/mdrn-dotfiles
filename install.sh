@@ -94,13 +94,14 @@ check_deps() {
                || report "$c" warn "not on PATH"
   done
 
-  # nvim must be 0.11+ for the native vim.lsp.config API in after/plugin/lsp.lua
+  # nvim must be 0.12+ for nvim-treesitter `main`, which hard-errors below it.
+  # (0.11 would still satisfy the native vim.lsp.config API in after/plugin/lsp.lua.)
   if have nvim; then
     local v; v="$(nvim --version | head -1 | grep -oE '[0-9]+\.[0-9]+')"
-    if [ "$(printf '%s\n0.11\n' "$v" | sort -V | head -1)" = "0.11" ]; then
-      report "nvim version" ok "$v (>= 0.11)"
+    if [ "$(printf '%s\n0.12\n' "$v" | sort -V | head -1)" = "0.12" ]; then
+      report "nvim version" ok "$v (>= 0.12)"
     else
-      report "nvim version" warn "$v -- lsp.lua needs 0.11+"
+      report "nvim version" warn "$v -- treesitter 'main' needs 0.12+, lsp.lua needs 0.11+"
     fi
   fi
 
@@ -113,6 +114,21 @@ check_deps() {
   # treesitter compiles parsers from source
   have cc || have gcc && report "C compiler" ok "$(command -v cc || command -v gcc)" \
                       || report "C compiler" warn "needed for :TSUpdate"
+
+  # nvim-treesitter `main` compiles EVERY parser via `tree-sitter build`, so a
+  # missing CLI means no highlighting at all -- not a degraded experience.
+  # NOTE: the homebrew/distro `tree-sitter` package is the library neovim links
+  # against and ships no binary; the CLI is a separate `tree-sitter-cli`.
+  if have tree-sitter; then
+    local tsv; tsv="$(tree-sitter --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+    if [ "$(printf '%s\n0.26.1\n' "$tsv" | sort -V | head -1)" = "0.26.1" ]; then
+      report "tree-sitter CLI" ok "$tsv ($(command -v tree-sitter))"
+    else
+      report "tree-sitter CLI" warn "$tsv -- treesitter 'main' needs >= 0.26.1"
+    fi
+  else
+    report "tree-sitter CLI" warn "missing -- parsers cannot build; see README (NOT npm)"
+  fi
 
   # clipboard: pbcopy on macOS, one of three on Linux
   case "$(uname -s)" in

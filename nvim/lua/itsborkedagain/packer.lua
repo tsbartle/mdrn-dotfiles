@@ -38,23 +38,53 @@ return require('packer').startup(function(use)
 
   -- syntax highlighting with treesitter.
   --
-  -- Pinned to master. Upstream flipped the DEFAULT branch to `main` (the v1.0
-  -- rewrite), which deleted the entire `nvim-treesitter.configs` module that
-  -- after/plugin/treesitter.lua drives -- so an unpinned clone on a fresh
-  -- machine installs main and every startup throws
-  -- "module 'nvim-treesitter.configs' not found". master is maintenance-mode
-  -- but stable on 0.12. If you ever move to main, treesitter.lua has to be
-  -- rewritten around require('nvim-treesitter').install() plus a FileType
+  -- Pinned to `main` (the v1.0 rewrite). We were on `master`, which upstream
+  -- froze for nvim 0.11 -- and it is broken on 0.12. Its markdown, ruby and
+  -- bash injection queries resolve the injected language through the custom
+  -- `#set-lang-from-info-string!` directive, which query_predicates.lua
+  -- registers with `all = false` -- an option 0.12 removed. Captures are now
+  -- always TSNode LISTS, so the directive hands a plain table to
+  -- get_node_text() and every parse of a fenced code block throws
+  -- "attempt to call method 'range' (a nil value)" out of the highlighter.
+  -- Opening any .md file with a ```lang fence hit it, including in telescope's
+  -- grep preview.
+  --
+  -- `main` drops the directive for a plain @injection.language capture, so the
+  -- failure mode cannot occur. It requires nvim 0.12+ and the tree-sitter CLI
+  -- (>= 0.26.1) on PATH -- see install.sh --check. It also deleted the
+  -- `nvim-treesitter.configs` module, which is why after/plugin/treesitter.lua
+  -- is built around require('nvim-treesitter').install() plus a FileType
   -- autocmd calling vim.treesitter.start().
   --
   -- The run hook must live INSIDE the spec table. It used to be passed as a
   -- second argument -- `use('...', { run = ':TSUpdate' })` -- which packer
   -- silently discards, so packer_compiled.lua never registered the hook and
   -- parsers were never built.
+  --
+  -- It is also a FUNCTION, not the string ':TSUpdate'. packer runs the hook in
+  -- the same session that just cloned the plugin, but `start/` packages only
+  -- join runtimepath at STARTUP -- so plugin/nvim-treesitter.lua has not been
+  -- sourced, the user command does not exist yet, and PackerSync dies with
+  -- "E492: Not an editor command: TSUpdate". Putting the clone on rtp
+  -- ourselves and calling the module skips the command layer entirely.
+  --
+  -- update() only bumps parsers whose pinned revision moved, so this is a
+  -- no-op on a fresh clone -- the first install comes from the install{} call
+  -- in after/plugin/treesitter.lua. It matters on every LATER sync, because
+  -- parser revisions are pinned per plugin commit and must move in lockstep.
   use {
     'nvim-treesitter/nvim-treesitter',
-    branch = 'master',
-    run = ':TSUpdate',
+    branch = 'main',
+    run = function()
+      vim.opt.runtimepath:append(
+        vim.fn.stdpath('data') .. '/site/pack/packer/start/nvim-treesitter'
+      )
+      local ok, ts = pcall(require, 'nvim-treesitter')
+      if not ok then
+        return
+      end
+      ts.update():wait(300000) -- 5 min; compiling from source is not fast
+    end,
   }
 
   -- nvim-treesitter/playground was removed here: it is archived upstream and

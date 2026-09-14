@@ -26,6 +26,11 @@ brew install anomalyco/tap/opencode
 
 # treesitter compiles parsers from source and needs a C compiler
 xcode-select --install
+
+# nvim-treesitter `main` also needs the tree-sitter CLI. NOTE: this is NOT the
+# `tree-sitter` formula -- that one is the library neovim links against and
+# ships no binary. Do not install it from npm; upstream warns against it.
+brew install tree-sitter-cli
 ```
 
 That's the whole list. The font cask matters more than it looks — see step 3.
@@ -64,6 +69,29 @@ tar xf /tmp/lazygit.tar.gz -C /tmp lazygit
 install -Dm755 /tmp/lazygit ~/.local/bin/lazygit   # no sudo needed
 ```
 
+**The tree-sitter CLI is the other one you have to hand-install on RHEL.**
+nvim-treesitter `main` compiles every parser by shelling out to
+`tree-sitter build`, so without it `:TSInstall` fails and you get no
+highlighting at all. It is not in the base channels, and as of writing not in
+EPEL either — check `dnf search tree-sitter-cli` first, but expect to do this:
+
+```bash
+# prebuilt binary, no sudo, no Rust toolchain -- same pattern as lazygit above
+curl -Lo /tmp/ts.gz \
+  https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-x64.gz
+gunzip -f /tmp/ts.gz
+install -Dm755 /tmp/ts ~/.local/bin/tree-sitter
+tree-sitter --version        # must be >= 0.26.1
+```
+
+Confirm the asset name on the releases page if that 404s — upstream has renamed
+it before. The alternative, if you already have Rust, is
+`cargo install tree-sitter-cli`, which builds from source and takes a while.
+
+Do **not** install it from npm. Upstream's requirements list says so explicitly,
+and the npm package is a wrapper that fetches its own binary rather than the one
+your platform expects.
+
 `~/.local/bin` needs to be on your PATH. Everything in this repo finds lazygit
 via PATH — `nvim/after/plugin/lazygit.lua` guards with `vim.fn.executable()` and
 tmux's `prefix + g` popup does the same — so a user-local install works fine and
@@ -71,11 +99,13 @@ needs no root.
 
 Three things to know before you trust that list:
 
-- **Check `nvim --version` — this config hard-requires 0.11+.**
-  `after/plugin/lsp.lua` uses `vim.lsp.config` / `vim.lsp.enable`, which simply
-  don't exist earlier. EPEL's neovim has historically lagged. If it's below
-  0.11, grab the upstream AppImage instead. `./install.sh --check` runs exactly
-  this test for you, so you don't have to eyeball it.
+- **Check `nvim --version` — this config hard-requires 0.12+.**
+  Two separate reasons. `after/plugin/lsp.lua` uses `vim.lsp.config` /
+  `vim.lsp.enable`, which don't exist before 0.11; and nvim-treesitter `main`
+  refuses to run below 0.12 (its healthcheck calls `health.error`). EPEL's
+  neovim has historically lagged. If it's below 0.12, grab the upstream
+  AppImage instead. `./install.sh --check` runs exactly this test for you, so
+  you don't have to eyeball it.
 - **Ghostty has no official RHEL package.** It's a macOS `.app` here. On RHEL
   you'd need a COPR or a source build — and if you're running a different
   terminal, the `ghostty/` package in this repo is just unused. Nothing else
@@ -93,6 +123,7 @@ this file is right.
 | tmux, git, nvim | `tmux git neovim` | `tmux git neovim` | `tmux git neovim` |
 | lazygit | release binary ▼ | `lazygit` | `lazygit` |
 | C compiler (treesitter) | `build-essential` | `gcc make` | `base-devel` |
+| tree-sitter CLI ≥ 0.26.1 ▼ | binary or `cargo` ▼ | `tree-sitter-cli` | `tree-sitter-cli` |
 | Clipboard — X11 | `xclip` *or* `xsel` | `xclip` | `xclip` |
 | Clipboard — Wayland | `wl-clipboard` | `wl-clipboard` | `wl-clipboard` |
 | **ripgrep** (telescope grep) | `ripgrep` | `ripgrep` | `ripgrep` |
@@ -223,14 +254,21 @@ git clone --depth 1 https://github.com/wbthomason/packer.nvim \
 # 2. fetch every plugin in lua/itsborkedagain/packer.lua
 nvim +PackerSync
 
-# 3. compile the treesitter parsers (needs the C compiler from the deps step)
-nvim +TSUpdateSync
+# 3. compile the treesitter parsers (needs the C compiler AND the
+#    tree-sitter CLI from the deps step)
+nvim +TSUpdate
 ```
 
 The first launch warns about missing plugins — that's expected. `+PackerSync`
-opens a progress window; let it finish and `:q` out. `+TSUpdateSync` is the
-synchronous variant of `:TSUpdate`, so it blocks until every parser is built
-rather than returning immediately — that's what you want in a setup script.
+opens a progress window; let it finish and `:q` out.
+
+On nvim-treesitter `main` there is no `+TSUpdateSync` — the synchronous variants
+were dropped in the rewrite. Parser installation is driven by the
+`require('nvim-treesitter').install{...}` call in `after/plugin/treesitter.lua`,
+which runs asynchronously on every startup and is a no-op once the parsers are
+there. So in practice: run `nvim +PackerSync`, quit, then just open `nvim` and
+give it a minute on that first launch. `:TSInstall` and `:TSUpdate` are there if
+you want to drive it by hand, and `:TSLog` shows what happened.
 
 Then open nvim and run `:Mason` to confirm `ansiblels`, `html` and `lua_ls`
 installed.
@@ -257,47 +295,114 @@ this setup not tracked here.
 | Symptom | Cause | Fix |
 |---|---|---|
 | Tofu boxes ▯ instead of icons | Nerd Font not installed, or only the Mono face | Step 3 — install **both** faces |
-| `module 'nvim-treesitter.configs' not found` | treesitter on the wrong branch | See below |
+| `attempt to call method 'range' (a nil value)` in the highlighter | treesitter still on `master` | See below |
+| `module 'nvim-treesitter.configs' not found` | treesitter still on `master`, or plugin missing entirely | See below |
 | `attempt to call field 'define_modules'` | archived `playground` plugin | Remove it; nvim 0.12 has `:InspectTree` |
+| `:TSInstall` fails, "tree-sitter executable not found" | tree-sitter CLI missing | `brew install tree-sitter-cli` (not the `tree-sitter` formula, not npm) |
+| `PackerSync`: `E492: Not an editor command: TSUpdate` | `run` hook fired before the fresh clone joined `runtimepath` | Harmless — the clone still succeeded. Fixed by the function-form `run` hook in `packer.lua`; see below |
 | Telescope grep finds nothing, no error | `rg` missing | Install ripgrep |
 | `<leader>y` doesn't reach the system clipboard | no clipboard provider on Linux | See below |
 | nvim LSP errors about `vim.lsp.config` | Neovim older than 0.11 | Upgrade; `./install.sh --check` tests this |
+| `:checkhealth nvim-treesitter` errors on the nvim version | Neovim older than 0.12 | Upgrade; `main` has a hard 0.12 floor |
 | cmd+s / cmd+b do nothing in Ghostty | those keybinds were never in this config | Add them to `ghostty/config` if you want them |
 | tmux ignores `~/.config/tmux/tmux.conf` | tmux not searching the XDG path | See below |
 | `prefix + I` does nothing, no error | tpm not loaded | Step 4 — check the `run` line's path |
 
 ## The treesitter branch trap
 
-This is the one that will bite you on a fresh machine, and it bit this repo
-already.
+This one bit this repo twice, in opposite directions. **We are now on `main`.**
 
-nvim-treesitter flipped its **default branch** from `master` to `main` — the
-v1.0 rewrite, which deleted the entire `nvim-treesitter.configs` module that
-`after/plugin/treesitter.lua` is built around. An unpinned clone on a new
-machine therefore installs `main` and throws on every single startup, while your
-old machine keeps working because its clone predates the flip.
+nvim-treesitter flipped its default branch from `master` to `main` — the v1.0
+rewrite, which deleted the entire `nvim-treesitter.configs` module. The first
+round of pain was an unpinned clone picking up `main` and throwing
+`module 'nvim-treesitter.configs' not found` on every startup, so the spec was
+pinned back to `branch = 'master'`.
 
-`lua/itsborkedagain/packer.lua` now pins `branch = 'master'` explicitly. If you
-ever see those errors again, check what you actually have:
+That pin then became the problem. `master` is frozen upstream for nvim 0.11, and
+it is **broken on 0.12**. Its markdown, ruby and bash injection queries resolve
+the injected language through a custom directive,
+`#set-lang-from-info-string!`, which `query_predicates.lua` registers with
+`all = false` — an option 0.12 removed. Captures are now always TSNode *lists*,
+so the directive hands a plain Lua table to `get_node_text()` and every parse of
+a fenced code block dies in the highlighter:
+
+```
+Decoration provider "start" (ns=nvim.treesitter.highlighter):
+Lua: .../vim/treesitter/languagetree.lua:215: .../vim/treesitter.lua:197:
+     attempt to call method 'range' (a nil value)
+```
+
+Opening any `.md` file with a ```` ```lang ```` fence triggers it — including in
+telescope's grep preview, which is where it showed up. Both macOS and Linux;
+it's a version problem, not a platform one.
+
+`main` replaced the directive with a plain `@injection.language` capture, so the
+failure mode can't happen. The tradeoffs of being on `main`:
+
+- **Neovim 0.12+ required**, hard. `:checkhealth nvim-treesitter` errors below it.
+- **The `tree-sitter` CLI (≥ 0.26.1) must be on `PATH`** to build parsers. On
+  macOS that is `brew install tree-sitter-cli` — *not* the `tree-sitter`
+  formula, which is only the library neovim links against and ships no binary.
+  Not npm either; upstream says so explicitly.
+- **No lazy-loading, no `ensure_installed`, no `auto_install`, no `highlight`
+  module.** `after/plugin/treesitter.lua` is built around
+  `require('nvim-treesitter').install{...}` plus a `FileType` autocmd calling
+  `vim.treesitter.start()`. It was not a drop-in swap.
+- **The `tmux` parser is gone** — it isn't in `main`'s registry. `tmux.conf`
+  falls back to regex syntax. Add it as a custom parser in a `User TSUpdate`
+  autocmd if you miss it.
+
+If highlighting misbehaves, check what you actually have:
 
 ```bash
 git -C ~/.local/share/nvim/site/pack/packer/start/nvim-treesitter \
-    rev-parse --abbrev-ref HEAD        # must print: master
+    rev-parse --abbrev-ref HEAD        # must print: main
 ```
 
 Changing `branch` in the spec does **not** re-checkout an existing clone. You
-have to delete it and re-sync:
+have to delete it and re-sync — which also clears the stale `master` parsers,
+since on `master` those live *inside* the plugin directory and would otherwise
+shadow the new ones:
 
 ```bash
 rm -rf ~/.local/share/nvim/site/pack/packer/start/nvim-treesitter
 rm -f  ~/.config/nvim/plugin/packer_compiled.lua   # gitignored, regenerates
-nvim +PackerSync
-nvim +TSUpdateSync
+nvim +PackerSync                                   # let it finish, then :q
+nvim                                               # install{} runs async here
 ```
 
-Moving to `main` some day means rewriting `treesitter.lua` around
-`require('nvim-treesitter').install()` plus a `FileType` autocmd calling
-`vim.treesitter.start()`. It is not a drop-in swap.
+On `main`, parsers land in `~/.local/share/nvim/site/parser/` and queries in
+`~/.local/share/nvim/site/queries/`, not under the plugin.
+
+### Why the `run` hook is a function, not `':TSUpdate'`
+
+packer executes a plugin's `run` hook in the same session that just cloned it —
+but packages under `start/` only join `runtimepath` at *startup*. So
+`plugin/nvim-treesitter.lua`, which is what creates the `:TSUpdate` command, has
+not been sourced, and `nvim +PackerSync` fails with:
+
+```
+[packer.nvim] [ERROR] async.lua:20: Error in coroutine:
+  nvim_exec2(), line 1: Vim:E492: Not an editor command: TSUpdate
+```
+
+That error is **cosmetic** — the clone itself succeeded; only the post-install
+step was skipped. `packer.lua` now uses a function hook that appends the clone
+to `runtimepath` and calls `require('nvim-treesitter').update()` directly,
+bypassing the command. If you're staring at that error right now, you don't need
+to re-clone: just `rm -f ~/.config/nvim/plugin/packer_compiled.lua`, start
+`nvim`, and let `install{}` build the parsers.
+
+To confirm the actual bug is dead:
+
+```bash
+printf -- '# x\n\n```bash\ngit status\n```\n' > /tmp/repro.md
+nvim --headless /tmp/repro.md \
+  -c 'lua local p = vim.treesitter.get_parser(0, "markdown"); print(pcall(function() p:parse(true) end))' \
+  -c 'qa!'
+# master: false   treesitter.lua:197: attempt to call method 'range' (a nil value)
+# main:   true
+```
 
 ## tmux can't find the config on RHEL
 
