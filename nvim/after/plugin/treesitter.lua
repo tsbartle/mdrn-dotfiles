@@ -46,6 +46,7 @@ ts.install {
   'ruby',
   'yaml',
   'markdown',
+  'bash',
 }
 
 -- Replaces `highlight = { enable = true }` plus `auto_install = true`.
