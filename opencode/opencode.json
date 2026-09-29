@@ -1,5 +1,17 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "model": "opencode/kimi-k2.5",
-  "autoupdate": true
+  "provider": {
+    "vacc": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "VACC LLM Gateway",
+      "options": { "baseURL": "https://llmgw.vacc.uvm.edu/v1" },
+      "models": {
+        "gpt-oss-120b": {
+          "name": "gpt-oss-120b (VACC)",
+          "limit": { "context": 129000, "output": 128000 }
+        }
+      }
+    }
+  },
+  "model": "vacc/gpt-oss-120b"
 }
