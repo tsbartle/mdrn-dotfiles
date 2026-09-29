@@ -3,7 +3,7 @@ font-style = SemiBold
 font-size = 18
 
 background-blur = macos-glass-regular
-macos-icon = retro
+macos-icon = chalkboard
 #background-opacity = 0.95
 
 # Draw Nerd Font ICONS from the non-Mono face while text stays Mono.
